@@ -1,10 +1,11 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import Image from "next/image";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import CameraView from "./components/CameraView";
-import { useState } from "react";
 
 type RecentSpot = {
   name: string;
@@ -113,22 +114,109 @@ const posts: Post[] = [
 
 export default function Home() {
   const [showCamera, setShowCamera] = useState(false);
-  const [feedPosts, setFeedPosts] = useState<Post[]>(posts);
+  const [feedPosts, setFeedPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleUploadSuccess = (url: string) => {
-    const newPost: Post = {
-      id: `new-${Date.now()}`,
-      title: "Khoảnh khắc mới",
-      date: new Date().toLocaleDateString("vi-VN"),
-      image: url,
-      badge: { icon: "new_releases", label: "Mới", variant: "favorite" },
+  // Fetch posts on mount
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('posts')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching posts:', error);
+          return;
+        }
+
+        if (data) {
+          const formattedPosts: Post[] = data.map((item: any) => ({
+            id: item.id,
+            title: item.title || item.location || "Món ngon",
+            date: new Date(item.created_at).toLocaleDateString("vi-VN"),
+            image: item.image_url,
+            badge: {
+              icon: "star",
+              label: item.rating ? item.rating.toFixed(1) : "5.0",
+              variant: "rating"
+            },
+            notes: item.note ? [
+              {
+                id: `note-${item.id}`,
+                text: item.note,
+                avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuAGeKX9wrracpdA8KSybq-3kGm4BOxaHlU3JEXFgBP89-MfWW7igouTd7oIjpUnRVhZ5lH-VcI_4Ip2ccT1rpO1j0SRaq5KfRzLQ3iSqNxsehBZfDpjs9vylyfLKFvr3b1Lf9ltoZpgKe0oMJx8m4XCOk0N7LnflYVP5jQQ8JsMFQPm7GS9nnvB1vHr9GKsWbVm2MbJIP9dI8xfycYV4ssIhBflC5ksaZlYzS76NUqFbklc2yXIG0VhpNl_Sd3s-bqkiYSLTc9ADiU",
+                alignment: "left",
+              }
+            ] : []
+          }));
+          setFeedPosts(formattedPosts);
+        }
+      } catch (err) {
+        console.error('Unexpected error:', err);
+      } finally {
+        setLoading(false);
+      }
     };
-    setFeedPosts([newPost, ...feedPosts]);
+
+    fetchPosts();
+  }, []);
+
+  const handleUploadSuccess = async (data: {
+    url: string;
+    dishName: string;
+    location: string;
+    rating: number;
+    note: string;
+    latitude?: number;
+    longitude?: number;
+  }) => {
+    // 1. Optimistic Update (Immediate UI feedback)
+    const newPostTemp: Post = {
+      id: `temp-${Date.now()}`,
+      title: data.dishName || data.location || "Món ngon",
+      date: "Vừa xong",
+      image: data.url,
+      badge: { icon: "star", label: data.rating.toFixed(1), variant: "rating" },
+      notes: data.note ? [
+        {
+          id: `note-temp-${Date.now()}`,
+          text: data.note,
+          avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuAGeKX9wrracpdA8KSybq-3kGm4BOxaHlU3JEXFgBP89-MfWW7igouTd7oIjpUnRVhZ5lH-VcI_4Ip2ccT1rpO1j0SRaq5KfRzLQ3iSqNxsehBZfDpjs9vylyfLKFvr3b1Lf9ltoZpgKe0oMJx8m4XCOk0N7LnflYVP5jQQ8JsMFQPm7GS9nnvB1vHr9GKsWbVm2MbJIP9dI8xfycYV4ssIhBflC5ksaZlYzS76NUqFbklc2yXIG0VhpNl_Sd3s-bqkiYSLTc9ADiU",
+          alignment: "left",
+        }
+      ] : []
+    };
+
+    setFeedPosts([newPostTemp, ...feedPosts]);
     setShowCamera(false);
+
+    // 2. Persist to Supabase
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .insert({
+          title: data.dishName,
+          location: data.location,
+          rating: data.rating,
+          image_url: data.url,
+          note: data.note,
+          latitude: data.latitude,
+          longitude: data.longitude
+        });
+
+      if (error) {
+        console.error("Error saving post to DB:", error);
+        alert("Đã lưu ảnh nhưng lỗi khi lưu thông tin vào CSDL.");
+      }
+    } catch (err) {
+      console.error("Unexpected error saving post:", err);
+    }
   };
 
   return (
-    <div suppressHydrationWarning className="bg-background-light dark:bg-[#0b0b0d] text-slate-800 dark:text-slate-100 h-screen w-full relative overflow-y-scroll snap-y snap-mandatory scroll-smooth scroll-pt-24 pt-20 pb-52">
+    <div suppressHydrationWarning className="bg-background-light dark:bg-[#0b0b0d] text-slate-800 dark:text-slate-100 h-screen w-full relative overflow-y-scroll snap-y snap-mandatory scroll-smooth no-scrollbar">
       {showCamera && (
         <CameraView
           onClose={() => setShowCamera(false)}
@@ -136,147 +224,118 @@ export default function Home() {
         />
       )}
 
-      {!showCamera && <Header />}
-
-      {/* <section className="mt-3 pl-6 pt-16 snap-start shrink-0">
-        <div className="flex items-center justify-between pr-6 mb-3">
-          <h2 className="text-lg font-bold text-primary-dark dark:text-white">Gần đây</h2>
-          <button
-            type="button"
-            className="text-primary dark:text-white text-sm font-semibold hover:opacity-80"
-          >
-            Xem hết
-          </button>
+      {!showCamera && (
+        <div className="fixed top-0 left-0 right-0 z-50 pointer-events-none">
+          <div className="pointer-events-auto">
+            <Header />
+          </div>
         </div>
-        <div className="flex overflow-x-auto space-x-4 pb-4 pr-6 no-scrollbar snap-x">
-          {recentSpots.map((spot) => (
-            <div
-              key={spot.name}
-              className="flex flex-col items-center space-y-2 snap-start"
-            >
-              <div
-                className={`w-20 h-20 p-[2px] rounded-full bg-gradient-to-tr ${spot.gradient}`}
-              >
-                <div className="w-full h-full rounded-full border-2 border-white dark:border-background-dark overflow-hidden">
-                  <Image
-                    src={spot.image}
-                    alt={spot.name}
-                    width={80}
-                    height={80}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              </div>
-              <span className="text-xs font-medium truncate w-20 text-center text-slate-600 dark:text-slate-400">
-                {spot.name}
-              </span>
-            </div>
-          ))}
-        </div>
-      </section> */}
+      )}
 
-      <main className="px-4 pb-24 space-y-32 contents">
+      {/* Main Feed */}
+      <main className="contents">
         {feedPosts.map((post, index) => (
-          <article
-            key={post.id}
-            className="ambient-container bg-white dark:bg-[#111317] rounded-xl shadow-blue-sm border border-card-border dark:border-[#1b1b1f] overflow-hidden snap-start shrink-0 w-[93%] mx-auto h-[65vh] flex flex-col relative"
-          >
-            {/* Ambient glow background layer */}
-            <div
-              className="ambient-glow"
-              style={{
-                backgroundImage: `url(${post.image})`,
-              }}
-              aria-hidden="true"
-            />
-
-            {/* Main Image Section - takes available space */}
-            <div className="relative flex-1 w-full bg-slate-100 dark:bg-[#0f1012] overflow-hidden">
-              <img
-                src={post.image}
-                alt={post.title}
-                className="w-full h-full object-cover absolute inset-0"
-              />
-              <div className="absolute top-4 right-4 z-10 bg-white/95 dark:bg-[#0f1012]/90 backdrop-blur-sm px-3 py-1 rounded-full flex items-center gap-1 shadow-md border border-slate-100 dark:border-[#1b1b1f]">
-                <span className="material-icons-round text-sm text-primary dark:text-white">
-                  {post.badge.icon}
-                </span>
-                <span className="text-xs font-bold text-primary-dark dark:text-white">
-                  {post.badge.label}
-                </span>
-              </div>
-            </div>
-
-            {/* Content Section - content at bottom */}
-            <div className="p-5 shrink-0 bg-white dark:bg-[#111317] relative z-10">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-xl font-bold text-primary-dark dark:text-white leading-tight mb-1">
-                    {post.title}
-                  </h3>
-                  <div className="flex items-center text-slate-400 text-xs">
-                    <span className="material-icons-round text-sm mr-1">calendar_today</span>
-                    {post.date}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className={
-                    post.badge.variant === "favorite"
-                      ? "text-primary dark:text-white hover:text-primary dark:hover:text-white"
-                      : "text-slate-300 hover:text-primary dark:hover:text-white"
-                  }
-                >
-                  <span className="material-icons-round">
-                    {post.badge.variant === "favorite" ? "bookmark" : "bookmark_border"}
+          <div key={post.id} className="w-full h-screen snap-start shrink-0 flex items-center justify-center p-4 pb-24">
+            <article
+              className="ambient-container bg-white dark:bg-[#111317] rounded-3xl shadow-xl border border-white/20 dark:border-[#1b1b1f] overflow-hidden w-full max-w-sm h-[70vh] flex flex-col relative"
+            >
+              {/* Main Image Section - takes available space */}
+              <div className="relative flex-1 w-full bg-slate-100 dark:bg-[#0f1012] overflow-hidden group">
+                <Image
+                  src={post.image}
+                  alt={post.title}
+                  fill
+                  className="object-cover transition-transform duration-700 group-hover:scale-105"
+                  priority={index === 0}
+                />
+                <div className="absolute top-4 right-4 z-10 bg-white/95 dark:bg-[#0f1012]/90 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-1 shadow-sm border border-slate-100 dark:border-[#1b1b1f]">
+                  <span className="material-icons-round text-sm text-primary dark:text-white">
+                    {post.badge.icon}
                   </span>
-                </button>
+                  <span className="text-xs font-bold text-primary-dark dark:text-white">
+                    {post.badge.label}
+                  </span>
+                </div>
               </div>
 
-              {post.notes ? (
-                <div className="space-y-3 bg-primary-light/30 dark:bg-[#161820] p-4 rounded-xl border border-primary-light/50 dark:border-transparent">
-                  {post.notes.map((note) => {
-                    const isRight = note.alignment === "right";
-
-                    return (
-                      <div
-                        key={note.id}
-                        className={`flex gap-3 ${isRight ? "flex-row-reverse" : ""}`}
-                      >
-                        <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 mt-1 ring-1 ring-white">
-                          <Image
-                            src={note.avatar}
-                            alt="avatar"
-                            width={24}
-                            height={24}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div
-                          className={`rounded-2xl p-3 flex-1 text-sm ${isRight
-                            ? "bg-primary-light dark:bg-[#1f2127] rounded-tr-none text-right text-primary-dark dark:text-white"
-                            : "bg-white dark:bg-[#181a1f] rounded-tl-none text-slate-600 dark:text-slate-200 shadow-sm"
-                            }`}
-                        >
-                          {note.text}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="space-y-3 bg-primary-light/30 dark:bg-[#161820] p-4 rounded-xl border border-primary-light/50 dark:border-transparent">
-                  <div className="text-center text-xs text-slate-400 italic">
-                    Chưa có ghi chú nào. Chạm để thêm!
+              {/* Content Section */}
+              <div className="p-5 shrink-0 bg-white dark:bg-[#111317] relative z-10">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="text-xl font-bold text-primary-dark dark:text-white leading-tight mb-1 line-clamp-1">
+                      {post.title}
+                    </h3>
+                    <div className="flex items-center text-slate-400 text-xs">
+                      <span className="material-icons-round text-sm mr-1">calendar_today</span>
+                      {post.date}
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    className={
+                      post.badge.variant === "favorite"
+                        ? "text-primary dark:text-white hover:text-primary dark:hover:text-white transition-colors"
+                        : "text-slate-300 hover:text-primary dark:hover:text-white transition-colors"
+                    }
+                  >
+                    <span className="material-icons-round text-2xl">
+                      {post.badge.variant === "favorite" ? "bookmark" : "bookmark_border"}
+                    </span>
+                  </button>
                 </div>
-              )}
-            </div>
-          </article>
+
+                {post.notes ? (
+                  <div className="space-y-3 bg-primary-light/30 dark:bg-[#161820] p-3 rounded-2xl border border-primary-light/50 dark:border-transparent">
+                    {post.notes.map((note) => {
+                      const isRight = note.alignment === "right";
+
+                      return (
+                        <div
+                          key={note.id}
+                          className={`flex gap-3 ${isRight ? "flex-row-reverse" : ""}`}
+                        >
+                          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-white dark:ring-[#1b1b1f]">
+                            <Image
+                              src={note.avatar}
+                              alt="avatar"
+                              width={32}
+                              height={32}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div
+                            className={`rounded-2xl p-2.5 flex-1 text-sm leading-relaxed ${isRight
+                              ? "bg-primary-light dark:bg-[#1f2127] rounded-tr-none text-right text-primary-dark dark:text-white"
+                              : "bg-white dark:bg-[#181a1f] rounded-tl-none text-slate-600 dark:text-slate-200 shadow-sm"
+                              }`}
+                          >
+                            {note.text}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="space-y-3 bg-primary-light/30 dark:bg-[#161820] p-4 rounded-xl border border-primary-light/50 dark:border-transparent">
+                    <div className="text-center text-xs text-slate-400 italic">
+                      Chạm để viết cảm nghĩ...
+                    </div>
+                  </div>
+                )}
+              </div>
+            </article>
+          </div>
         ))}
       </main>
 
-      <Footer onCameraClick={() => setShowCamera(true)} />
+      {/* Floating Footer */}
+      {!showCamera && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
+          <div className="pointer-events-auto">
+            <Footer onCameraClick={() => setShowCamera(true)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

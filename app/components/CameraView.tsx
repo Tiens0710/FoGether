@@ -6,7 +6,15 @@ import { supabase } from "@/lib/supabase";
 
 type CameraViewProps = {
     onClose: () => void;
-    onUploadSuccess?: (url: string) => void;
+    onUploadSuccess?: (data: {
+        url: string;
+        dishName: string;
+        location: string;
+        rating: number;
+        note: string;
+        latitude?: number;
+        longitude?: number;
+    }) => void;
 };
 
 export default function CameraView({ onClose, onUploadSuccess }: CameraViewProps) {
@@ -19,6 +27,16 @@ export default function CameraView({ onClose, onUploadSuccess }: CameraViewProps
     const [capturedImage, setCapturedImage] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
+
+    // Review State
+    const [dishName, setDishName] = useState("");
+    const [location, setLocation] = useState("");
+    const [locationCoords, setLocationCoords] = useState<{ latitude: number, longitude: number } | null>(null);
+    const [rating, setRating] = useState(5);
+    const [note, setNote] = useState("");
+
+    // ... within uploadImage ...
+
 
     const startCamera = async () => {
         try {
@@ -55,7 +73,13 @@ export default function CameraView({ onClose, onUploadSuccess }: CameraViewProps
     };
 
     useEffect(() => {
+        // Force reset state on mount
+        setCapturedImage(null);
+        setError(null);
+        setUploading(false);
+
         startCamera();
+
         return () => {
             if (stream) {
                 stream.getTracks().forEach((track) => track.stop());
@@ -139,7 +163,15 @@ export default function CameraView({ onClose, onUploadSuccess }: CameraViewProps
             console.log("Uploaded successfully:", publicUrl);
             // alert("Đã tải ảnh lên thành công!"); 
             if (onUploadSuccess) {
-                onUploadSuccess(publicUrl);
+                onUploadSuccess({
+                    url: publicUrl,
+                    dishName,
+                    location,
+                    rating,
+                    note,
+                    latitude: locationCoords?.latitude,
+                    longitude: locationCoords?.longitude
+                });
             }
             onClose();
 
@@ -149,6 +181,31 @@ export default function CameraView({ onClose, onUploadSuccess }: CameraViewProps
         } finally {
             setUploading(false);
         }
+    };
+
+    const handleGetLocation = () => {
+        if (!navigator.geolocation) {
+            alert("Trình duyệt không hỗ trợ định vị.");
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const { latitude, longitude } = position.coords;
+                setLocationCoords({ latitude, longitude });
+
+                // Simple reverse geocoding (optional, just filling text)
+                // For now, we prefer user input or just showing "Đã lấy vị trí"
+                // But let's try to set a placeholder
+                setLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+
+                // Real app would use Google Maps API or OpenStreetMap here to get address name
+            },
+            (error) => {
+                console.error("Error getting location:", error);
+                alert("Không thể lấy vị trí. Hãy kiểm tra quyền truy cập.");
+            }
+        );
     };
 
     return (
@@ -164,36 +221,110 @@ export default function CameraView({ onClose, onUploadSuccess }: CameraViewProps
             />
 
             {capturedImage ? (
-                // Preview State
-                <div className="relative flex-1 bg-black flex items-center justify-center">
+                // Review/Post State
+                <div className="relative flex-1 bg-black flex flex-col">
                     <Image
                         src={capturedImage}
                         alt="Captured"
                         fill
-                        className="object-contain"
+                        className="object-cover"
                     />
-                    <div className="absolute inset-x-0 bottom-0 p-8 flex justify-between items-center bg-gradient-to-t from-black/80 to-transparent">
-                        <button
-                            onClick={retake}
-                            disabled={uploading}
-                            className="text-white font-semibold text-lg drop-shadow-md disabled:opacity-50"
-                        >
-                            Chụp lại
+
+                    {/* Header */}
+                    <div className="absolute top-0 left-0 right-0 p-4 z-10 flex justify-between items-center pt-safe">
+                        <button onClick={retake} className="p-2 text-white/80 hover:text-white">
+                            <span className="material-icons-round text-3xl">close</span>
                         </button>
-                        <button
-                            onClick={uploadImage}
-                            disabled={uploading}
-                            className="bg-primary text-white px-6 py-2 rounded-full font-bold shadow-lg disabled:opacity-50 flex items-center gap-2"
-                        >
-                            {uploading ? (
-                                <>
-                                    <span className="material-icons-round animate-spin">refresh</span>
-                                    Đang tải...
-                                </>
-                            ) : (
-                                "Sử dụng"
-                            )}
-                        </button>
+                        <div className="bg-white/20 backdrop-blur-md px-4 py-1 rounded-full border border-white/10">
+                            <span className="text-white text-xs font-bold tracking-wider">FOOD JOURNAL</span>
+                        </div>
+                        <div className="w-10"></div> {/* Spacer */}
+                    </div>
+
+                    {/* Card Overlay */}
+                    <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[2rem] p-6 pb-safe animate-slide-up transition-transform duration-300 ease-out z-20 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
+                        {/* Drag Handle */}
+                        <div className="w-12 h-1 bg-gray-200 rounded-full mx-auto mb-6" />
+
+                        <div className="text-center mb-6 border-b border-gray-100 pb-4">
+                            <input
+                                type="text"
+                                placeholder="Tên món ăn"
+                                value={dishName}
+                                onChange={(e) => setDishName(e.target.value)}
+                                className="w-full text-center text-3xl font-bold text-gray-800 placeholder:text-gray-300 border-none focus:ring-0 bg-transparent p-0"
+                            />
+                        </div>
+
+                        <div className="space-y-6">
+                            {/* Location Input */}
+                            <div className="relative">
+                                <span className={`absolute left-4 top-1/2 -translate-y-1/2 material-icons-round ${locationCoords ? "text-green-600" : "text-blue-600"}`}>
+                                    {locationCoords ? "my_location" : "place"}
+                                </span>
+                                <input
+                                    type="text"
+                                    placeholder="Tên quán / Địa điểm"
+                                    value={location}
+                                    onChange={(e) => setLocation(e.target.value)}
+                                    className={`w-full pl-12 pr-24 py-4 bg-gray-50 border ${locationCoords ? "border-green-200 bg-green-50" : "border-gray-100"} rounded-2xl text-gray-800 font-medium placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all`}
+                                />
+                                <button
+                                    onClick={handleGetLocation}
+                                    className={`absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold px-3 py-1.5 rounded-xl transition-colors ${locationCoords
+                                        ? "bg-green-100 text-green-700"
+                                        : "bg-blue-50 hover:bg-blue-100 text-blue-600"
+                                        }`}
+                                >
+                                    {locationCoords ? "ĐÃ LẤY" : "ĐỊNH VỊ"}
+                                </button>
+                            </div>
+
+                            {/* Rating */}
+                            <div className="flex flex-col items-center gap-3">
+                                <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">ĐÁNH GIÁ</span>
+                                <div className="flex gap-2">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <button
+                                            key={star}
+                                            onClick={() => setRating(star)}
+                                            className="transition-transform active:scale-90 focus:outline-none"
+                                        >
+                                            <span className={`material-icons-round text-4xl ${star <= rating ? "text-blue-500" : "text-gray-200"}`}>
+                                                favorite
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Note */}
+                            <textarea
+                                placeholder="Ghi chú nhanh về hương vị..."
+                                value={note}
+                                onChange={(e) => setNote(e.target.value)}
+                                className="w-full p-4 h-24 bg-gray-50 border border-gray-100 rounded-2xl text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white resize-none transition-all"
+                            />
+
+                            {/* Submit Button */}
+                            <button
+                                onClick={uploadImage}
+                                disabled={uploading || !location.trim()} // Require location
+                                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all active:scale-95"
+                            >
+                                {uploading ? (
+                                    <>
+                                        <span className="material-icons-round animate-spin">refresh</span>
+                                        Đang đăng...
+                                    </>
+                                ) : (
+                                    <>
+                                        Đăng lên Feed
+                                        <span className="material-icons-round">arrow_forward</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
             ) : (
