@@ -1,26 +1,212 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: dark;
   }
 }
 
+@theme inline {
+  --color-primary: #111111;
+  --color-primary-light: #e5e7eb;
+  --color-primary-dark: #000000;
+  --color-accent: #111111;
+  --color-background-light: #f6f6f7;
+  --color-background-dark: #0b0b0d;
+  --color-card-border: #1b1b1f;
+  --shadow-blue-sm: 0 2px 8px -2px rgba(0, 0, 0, 0.08);
+  --shadow-blue-md: 0 4px 12px -2px rgba(0, 0, 0, 0.12);
+  --font-sans: var(--font-display);
+  --font-mono: var(--font-geist-mono);
+  
+  /* Vibrant Glass Variables */
+  --color-ocean: #0077ff;
+  --color-ocean-dark: #0056b3;
+  --glass-ultra-light: rgba(255, 255, 255, 0.02);
+  --glass-border: rgba(255, 255, 255, 0.15);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-display), system-ui, -apple-system, "Segoe UI", sans-serif;
+  min-height: 100dvh;
+  overflow: hidden; /* Prevent double scrollbars handled by main container */
+  background-color: var(--color-background-light);
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.18), transparent 32%),
+    radial-gradient(circle at 80% 0%, rgba(255, 255, 255, 0.12), transparent 26%),
+    radial-gradient(circle at 50% 80%, rgba(0, 0, 0, 0.06), transparent 36%);
+  background-repeat: no-repeat;
+  background-size: cover;
+  color: var(--color-foreground, #0f0f12);
+  position: relative;
+  z-index: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: var(--color-background-dark);
+    background-image:
+      radial-gradient(circle at 16% 18%, rgba(255, 255, 255, 0.08), transparent 28%),
+      radial-gradient(circle at 78% 6%, rgba(255, 255, 255, 0.06), transparent 22%),
+      radial-gradient(circle at 50% 82%, rgba(255, 255, 255, 0.04), transparent 34%);
+    color: #e5e7eb;
+  }
+}
+
+.glass-body {
+  position: relative;
+  isolation: isolate;
+}
+
+.glass-body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.06) 45%, rgba(0, 0, 0, 0.08) 100%),
+    radial-gradient(50% 50% at 20% 20%, rgba(255, 255, 255, 0.22), transparent 60%),
+    radial-gradient(42% 42% at 82% 10%, rgba(0, 0, 0, 0.08), transparent 48%);
+  backdrop-filter: blur(26px) saturate(150%);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+  opacity: 0.9;
+}
+
+.dark .glass-body::after {
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 50%, rgba(0, 0, 0, 0.6) 100%),
+    radial-gradient(50% 50% at 16% 16%, rgba(255, 255, 255, 0.1), transparent 55%),
+    radial-gradient(40% 40% at 78% 12%, rgba(255, 255, 255, 0.06), transparent 45%);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  opacity: 0.88;
+}
+
+.glass-photo-frame {
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 12px 30px -14px rgba(0, 0, 0, 0.55),
+    0 18px 50px -28px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+
+.dark .glass-photo-frame {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03));
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 18px 48px -20px rgba(0, 0, 0, 0.85),
+    0 14px 40px -30px rgba(0, 0, 0, 0.65);
+}
+
+/* Hieu ung kinh trang chuan Locket */
+.glass-card-locket {
+  background: rgba(255, 255, 255, 0.5) !important;
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Hieu ung tron mau xanh vao anh */
+.photo-overlay-blue {
+  position: absolute;
+  inset: 0;
+  background: #0077ff;
+  mix-blend-mode: soft-light;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* ==========================================
+   VIBRANT CHAMELEON GLASS EFFECT
+   iOS-style vibrancy that amplifies image colors
+   ========================================== */
+
+.vibrant-glass {
+  /* Ultra-low alpha to avoid milky/gray look */
+  background: rgba(255, 255, 255, 0.02);
+  
+  /* The Magic Filter Stack - CRITICAL for color amplification */
+  backdrop-filter: 
+    blur(20px)           /* Frosted look */
+    saturate(280%)       /* Amplify colors - THIS IS KEY */
+    contrast(120%)       /* Remove cloudiness */
+    brightness(110%);    /* Text readability */
+  -webkit-backdrop-filter: 
+    blur(20px) 
+    saturate(280%) 
+    contrast(120%) 
+    brightness(110%);
+  
+  /* Gradient border simulating light reflection on glass edge */
+  border: 1px solid transparent;
+  border-image: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.05) 100%
+  ) 1;
+  
+  /* Deep shadow to lift glass from background */
+  box-shadow: 
+    0 8px 32px -8px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+
+/* Variant: Dynamic Glass Panel (adapts to image tone) */
+.dynamic-glass-panel {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(24px) saturate(300%) contrast(125%) brightness(115%);
+  -webkit-backdrop-filter: blur(24px) saturate(300%) contrast(125%) brightness(115%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    0 12px 40px -12px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 2px 8px rgba(255, 255, 255, 0.1) inset;
+}
+
+/* Variant: Gemstone Glass (maximum color pop) */
+.gemstone-glass {
+  background: rgba(255, 255, 255, 0.01);
+  backdrop-filter: blur(16px) saturate(350%) contrast(130%) brightness(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(350%) contrast(130%) brightness(120%);
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 
+    0 16px 48px -16px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.15) inset,
+    0 4px 12px rgba(255, 255, 255, 0.15) inset;
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .vibrant-glass,
+  .dynamic-glass-panel,
+  .gemstone-glass {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+}
+
+/* Text glow for readability on glass */
+.text-glow {
+  text-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

@@ -1,0 +1,132 @@
+.footer {
+  position: fixed;
+  bottom: 12px;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: transparent;
+  backdrop-filter: none;
+  border: none;
+  padding: 0;
+  color: #f1f5f9;
+  margin-bottom: 1px;
+}
+
+.dark .footer {
+  background: transparent;
+  border: none;
+}
+
+.footer__inner {
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  background: transparent;
+  border: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+.footer__group {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.footer__group--center {
+  gap: 16px;
+}
+
+.footer__group--pill {
+  padding: 7px 16px;
+  border-radius: 9999px;
+  background: rgba(26, 27, 29, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px) saturate(170%);
+  box-shadow: 0 18px 48px -26px rgba(0, 0, 0, 0.7);
+}
+
+
+
+.footer__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #aeb4bd;
+  transition: color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.footer__icon {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+
+.footer__button--ghost {
+  background: transparent;
+}
+
+.footer__button--primary {
+  width: 48px;
+  height: 48px;
+  border-radius: 9999px;
+  border: 2px solid #f2b400;
+  box-shadow: 0 0 0 3px rgba(242, 180, 0, 0.25), 0 14px 32px -18px rgba(0, 0, 0, 0.65);
+  background: radial-gradient(circle, #ffffff 0%, #ffffff 60%, transparent 61%);
+}
+
+.footer__primary-dot {
+  width: 23px;
+  height: 23px;
+  border-radius: 9999px;
+  background: #ffffff;
+  display: block;
+}
+
+.footer__button:hover {
+  color: #f8fafc;
+  transform: translateY(-1px);
+}
+
+.dark .footer__button {
+  color: #aeb4bd;
+}
+
+.dark .footer__button--active,
+.dark .footer__button:hover {
+  color: #ffffff;
+}
+
+.footer__label,
+.footer__label--active {
+  display: none;
+}
+
+.footer__badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 9999px;
+  border: 2px solid #ffffff;
+}
+
+.dark .footer__badge {
+  border-color: #0b0b0d;
+}
+
+.footer__icon-wrapper {
+  position: relative;
+  display: inline-flex;
+}
