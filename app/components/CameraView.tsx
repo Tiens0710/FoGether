@@ -28,7 +28,9 @@ export default function CameraView({ onClose, onUploadSuccess }: CameraViewProps
             }
 
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                throw new Error("Trình duyệt không hỗ trợ Camera hoặc context không an toàn (cần HTTPS/localhost).");
+                // Determine why it's missing
+                const isSecure = window.isSecureContext;
+                throw new Error(`API Camera không tồn tại. Secure Context: ${isSecure}. (Cần HTTPS hoặc localhost)`);
             }
 
             const newStream = await navigator.mediaDevices.getUserMedia({
@@ -42,10 +44,13 @@ export default function CameraView({ onClose, onUploadSuccess }: CameraViewProps
             setStream(newStream);
             if (videoRef.current) {
                 videoRef.current.srcObject = newStream;
+                // Important for iOS: explicit play
+                videoRef.current.play().catch(e => console.error("Error playing video:", e));
             }
         } catch (err: any) {
             console.error("Error accessing camera:", err);
-            setError("Không thể truy cập Camera. Vui lòng cấp quyền, dùng HTTPS hoặc thử trên thiết bị khác.\n" + (err.message || err));
+            // Show detailed error for debugging
+            setError(`${err.name}: ${err.message}`);
         }
     };
 
@@ -211,6 +216,7 @@ export default function CameraView({ onClose, onUploadSuccess }: CameraViewProps
                             ref={videoRef}
                             autoPlay
                             playsInline
+                            muted
                             className={`w-full h-full object-cover ${facingMode === "user" ? "scale-x-[-1]" : ""}`}
                         />
                         {error && (
@@ -221,17 +227,27 @@ export default function CameraView({ onClose, onUploadSuccess }: CameraViewProps
                                         Không thể mở Camera.
                                         <br />
                                         <span className="text-sm text-gray-400 block mt-2 opacity-75">
-                                            (Trình duyệt chặn do chưa cấp quyền hoặc không phải HTTPS)
+                                            {error}
                                         </span>
                                     </p>
 
-                                    <button
-                                        onClick={handleGalleryClick}
-                                        className="bg-white/10 hover:bg-white/20 active:bg-white/30 text-white px-6 py-3 rounded-full font-bold shadow-lg flex items-center gap-2 mx-auto transition-colors"
-                                    >
-                                        <span className="material-icons-round">photo_library</span>
-                                        Chọn từ thư viện
-                                    </button>
+                                    <div className="flex flex-col gap-3">
+                                        <button
+                                            onClick={() => startCamera()}
+                                            className="bg-primary hover:bg-primary/80 text-white px-6 py-3 rounded-full font-bold shadow-lg flex items-center justify-center gap-2 mx-auto transition-colors w-full"
+                                        >
+                                            <span className="material-icons-round">refresh</span>
+                                            Thử lại
+                                        </button>
+
+                                        <button
+                                            onClick={handleGalleryClick}
+                                            className="bg-white/10 hover:bg-white/20 active:bg-white/30 text-white px-6 py-3 rounded-full font-bold shadow-lg flex items-center justify-center gap-2 mx-auto transition-colors w-full"
+                                        >
+                                            <span className="material-icons-round">photo_library</span>
+                                            Chọn từ thư viện
+                                        </button>
+                                    </div>
 
                                     <button onClick={onClose} className="mt-8 text-sm text-gray-500 hover:text-gray-300 transition-colors">
                                         Đóng
