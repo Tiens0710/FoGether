@@ -1,6 +1,10 @@
+"use client";
+
 import Image from "next/image";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import CameraView from "./components/CameraView";
+import { useState } from "react";
 
 type RecentSpot = {
   name: string;
@@ -108,9 +112,31 @@ const posts: Post[] = [
 ];
 
 export default function Home() {
+  const [showCamera, setShowCamera] = useState(false);
+  const [feedPosts, setFeedPosts] = useState<Post[]>(posts);
+
+  const handleUploadSuccess = (url: string) => {
+    const newPost: Post = {
+      id: `new-${Date.now()}`,
+      title: "Khoảnh khắc mới",
+      date: new Date().toLocaleDateString("vi-VN"),
+      image: url,
+      badge: { icon: "new_releases", label: "Mới", variant: "favorite" },
+    };
+    setFeedPosts([newPost, ...feedPosts]);
+    setShowCamera(false);
+  };
+
   return (
     <div suppressHydrationWarning className="bg-background-light dark:bg-[#0b0b0d] text-slate-800 dark:text-slate-100 h-screen w-full relative overflow-y-scroll snap-y snap-mandatory scroll-smooth scroll-pt-24 pt-20 pb-52">
-      <Header />
+      {showCamera && (
+        <CameraView
+          onClose={() => setShowCamera(false)}
+          onUploadSuccess={handleUploadSuccess}
+        />
+      )}
+
+      {!showCamera && <Header />}
 
       {/* <section className="mt-3 pl-6 pt-16 snap-start shrink-0">
         <div className="flex items-center justify-between pr-6 mb-3">
@@ -150,7 +176,7 @@ export default function Home() {
       </section> */}
 
       <main className="px-4 pb-24 space-y-32 contents">
-        {posts.map((post, index) => (
+        {feedPosts.map((post, index) => (
           <article
             key={post.id}
             className="ambient-container bg-white dark:bg-[#111317] rounded-xl shadow-blue-sm border border-card-border dark:border-[#1b1b1f] overflow-hidden snap-start shrink-0 w-[93%] mx-auto h-[65vh] flex flex-col relative"
@@ -166,13 +192,10 @@ export default function Home() {
 
             {/* Main Image Section - takes available space */}
             <div className="relative flex-1 w-full bg-slate-100 dark:bg-[#0f1012] overflow-hidden">
-              <Image
+              <img
                 src={post.image}
                 alt={post.title}
-                fill
-                sizes="(max-width: 768px) 100vw, 720px"
-                className="object-cover"
-                priority={index === 0}
+                className="w-full h-full object-cover absolute inset-0"
               />
               <div className="absolute top-4 right-4 z-10 bg-white/95 dark:bg-[#0f1012]/90 backdrop-blur-sm px-3 py-1 rounded-full flex items-center gap-1 shadow-md border border-slate-100 dark:border-[#1b1b1f]">
                 <span className="material-icons-round text-sm text-primary dark:text-white">
@@ -253,7 +276,7 @@ export default function Home() {
         ))}
       </main>
 
-      <Footer />
+      <Footer onCameraClick={() => setShowCamera(true)} />
     </div>
   );
 }

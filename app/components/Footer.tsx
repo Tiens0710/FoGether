@@ -2,9 +2,10 @@ import "./Footer.css";
 
 type FooterProps = {
   className?: string;
+  onCameraClick?: () => void;
 };
 
-export default function Footer({ className }: FooterProps) {
+export default function Footer({ className, onCameraClick }: FooterProps) {
   const rootClass = className ? `footer ${className}` : "footer";
 
   return (
@@ -15,7 +16,11 @@ export default function Footer({ className }: FooterProps) {
             <span className="material-icons-round footer__icon">map</span>
             <span className="footer__label">Bản đồ</span>
           </button>
-          <button type="button" className="footer__button footer__button--primary">
+          <button
+            type="button"
+            className="footer__button footer__button--primary"
+            onClick={onCameraClick}
+          >
             <span className="footer__primary-dot" />
           </button>
           <button type="button" className="footer__button footer__button--ghost">
