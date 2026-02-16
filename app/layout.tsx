@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import AuthProvider from "./components/AuthProvider";
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -39,8 +40,11 @@ export default function RootLayout({
         suppressHydrationWarning
         className={`${plusJakarta.variable} ${geistMono.variable} font-sans antialiased bg-background-light text-slate-800 dark:bg-background-dark dark:text-slate-100`}
       >
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
 }
+

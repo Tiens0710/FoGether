@@ -183,10 +183,28 @@ export default function CameraView({ onClose, onUploadSuccess }: CameraViewProps
         }
     };
 
-    const handleGetLocation = () => {
+    const [gettingLocation, setGettingLocation] = useState(false);
+
+    const handleGetLocation = async () => {
         if (!navigator.geolocation) {
-            alert("Trình duyệt không hỗ trợ định vị.");
+            alert("Trình duyệt không hỗ trợ định vị. Hãy thử trình duyệt khác.");
             return;
+        }
+
+        setGettingLocation(true);
+
+        // Check permission status first (if supported)
+        try {
+            if (navigator.permissions) {
+                const permStatus = await navigator.permissions.query({ name: 'geolocation' });
+                if (permStatus.state === 'denied') {
+                    alert("Bạn đã từ chối quyền định vị. Hãy vào Cài đặt trình duyệt > Quyền > Vị trí để bật lại.");
+                    setGettingLocation(false);
+                    return;
+                }
+            }
+        } catch {
+            // permissions API not supported, continue anyway
         }
 
         navigator.geolocation.getCurrentPosition(
@@ -194,16 +212,54 @@ export default function CameraView({ onClose, onUploadSuccess }: CameraViewProps
                 const { latitude, longitude } = position.coords;
                 setLocationCoords({ latitude, longitude });
 
-                // Simple reverse geocoding (optional, just filling text)
-                // For now, we prefer user input or just showing "Đã lấy vị trí"
-                // But let's try to set a placeholder
-                setLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+                // Reverse geocoding: convert coordinates to address
+                try {
+                    const res = await fetch(
+                        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=vi`
+                    );
+                    const geo = await res.json();
 
-                // Real app would use Google Maps API or OpenStreetMap here to get address name
+                    if (geo && geo.display_name) {
+                        // Lấy tên ngắn gọn: road, suburb, city
+                        const addr = geo.address;
+                        const shortName = [
+                            addr?.road,
+                            addr?.suburb || addr?.neighbourhood,
+                            addr?.city || addr?.town || addr?.village
+                        ].filter(Boolean).join(", ");
+
+                        setLocation(shortName || geo.display_name.split(",").slice(0, 3).join(","));
+                    } else {
+                        setLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+                    }
+                } catch {
+                    // Fallback to coordinates if reverse geocoding fails
+                    setLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+                }
+
+                setGettingLocation(false);
             },
             (error) => {
-                console.error("Error getting location:", error);
-                alert("Không thể lấy vị trí. Hãy kiểm tra quyền truy cập.");
+                setGettingLocation(false);
+                console.error("Geolocation error:", error);
+                switch (error.code) {
+                    case error.PERMISSION_DENIED:
+                        alert("Bạn chưa cấp quyền định vị.\n\nHãy bấm 'Cho phép' (Allow) khi trình duyệt hỏi, hoặc vào Cài đặt để bật lại.");
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        alert("Không tìm được vị trí. Hãy thử lại ở nơi có sóng tốt hơn.");
+                        break;
+                    case error.TIMEOUT:
+                        alert("Hết thời gian chờ định vị. Hãy thử lại.");
+                        break;
+                    default:
+                        alert("Không thể lấy vị trí: " + error.message);
+                }
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 60000
             }
         );
     };
@@ -271,12 +327,20 @@ export default function CameraView({ onClose, onUploadSuccess }: CameraViewProps
                                 />
                                 <button
                                     onClick={handleGetLocation}
-                                    className={`absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold px-3 py-1.5 rounded-xl transition-colors ${locationCoords
-                                        ? "bg-green-100 text-green-700"
-                                        : "bg-blue-50 hover:bg-blue-100 text-blue-600"
+                                    disabled={gettingLocation}
+                                    className={`absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold px-3 py-1.5 rounded-xl transition-colors ${gettingLocation
+                                        ? "bg-yellow-100 text-yellow-700"
+                                        : locationCoords
+                                            ? "bg-green-100 text-green-700"
+                                            : "bg-blue-50 hover:bg-blue-100 text-blue-600"
                                         }`}
                                 >
-                                    {locationCoords ? "ĐÃ LẤY" : "ĐỊNH VỊ"}
+                                    {gettingLocation ? (
+                                        <span className="flex items-center gap-1">
+                                            <span className="material-icons-round text-sm animate-spin">refresh</span>
+                                            Đang lấy...
+                                        </span>
+                                    ) : locationCoords ? "✅ ĐÃ LẤY" : "📍 ĐỊNH VỊ"}
                                 </button>
                             </div>
 
