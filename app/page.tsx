@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import Image from "next/image";
 import Header from "./components/Header";
+import type { FeedFilter } from "./components/Header";
 import Footer from "./components/Footer";
 import CameraView from "./components/CameraView";
 import LoginPage from "./components/LoginPage";
@@ -18,6 +19,9 @@ type Comment = {
 
 type Post = {
   id: string;
+  user_id?: string;
+  poster_name?: string;
+  poster_avatar?: string;
   title: string;
   date: string;
   image: string;
@@ -41,6 +45,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [submittingComment, setSubmittingComment] = useState<string | null>(null);
+  const [feedFilter, setFeedFilter] = useState<FeedFilter>("all");
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "Ẩn danh";
 
   // Fetch posts + comments on mount
@@ -79,6 +84,9 @@ export default function Home() {
 
           const formattedPosts: Post[] = data.map((item: any) => ({
             id: item.id,
+            user_id: item.user_id,
+            poster_name: item.poster_name,
+            poster_avatar: item.poster_avatar,
             title: item.title || item.location || "Món ngon",
             date: new Date(item.created_at).toLocaleDateString("vi-VN"),
             image: item.image_url,
@@ -182,6 +190,9 @@ export default function Home() {
     // 1. Optimistic Update
     const newPostTemp: Post = {
       id: `temp-${Date.now()}`,
+      user_id: user?.id,
+      poster_name: userName,
+      poster_avatar: user?.user_metadata?.avatar_url,
       title: data.dishName || data.location || "Món ngon",
       date: "Vừa xong",
       image: data.url,
@@ -213,7 +224,10 @@ export default function Home() {
           image_url: data.url,
           note: data.note,
           latitude: data.latitude,
-          longitude: data.longitude
+          longitude: data.longitude,
+          user_id: user?.id,
+          poster_name: userName,
+          poster_avatar: user?.user_metadata?.avatar_url || null,
         })
         .select()
         .single();
@@ -237,6 +251,15 @@ export default function Home() {
   };
 
 
+  // Filter posts based on selected filter (must be before early returns)
+  const filteredPosts = useMemo(() => {
+    if (feedFilter === "mine") {
+      return feedPosts.filter(p => p.user_id === user?.id);
+    }
+    // "friends" and "all" show everything for now
+    return feedPosts;
+  }, [feedPosts, feedFilter, user?.id]);
+
   // Auth loading state
   if (authLoading) {
     return (
@@ -256,6 +279,7 @@ export default function Home() {
     return <LoginPage />;
   }
 
+
   return (
     <div suppressHydrationWarning className="bg-background-light dark:bg-[#0b0b0d] text-slate-800 dark:text-slate-100 h-screen w-full relative overflow-y-scroll snap-y snap-mandatory scroll-smooth no-scrollbar">
       {showCamera && (
@@ -268,14 +292,14 @@ export default function Home() {
       {!showCamera && (
         <div className="fixed top-0 left-0 right-0 z-50 pointer-events-none">
           <div className="pointer-events-auto">
-            <Header />
+            <Header feedFilter={feedFilter} onFilterChange={setFeedFilter} />
           </div>
         </div>
       )}
 
       {/* Main Feed */}
       <main className="contents">
-        {feedPosts.map((post, index) => (
+        {filteredPosts.map((post, index) => (
           <div key={post.id} className="w-full h-screen snap-start shrink-0 flex items-center justify-center p-4 pb-24">
             <article
               className="ambient-container bg-white dark:bg-[#111317] rounded-3xl shadow-xl border border-white/20 dark:border-[#1b1b1f] overflow-hidden w-full max-w-sm h-[70vh] flex flex-col relative"
@@ -392,11 +416,31 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Username + Caption */}
-                <div className="mb-1">
-                  <span className="text-sm font-bold text-slate-800 dark:text-white mr-1.5">
-                    {post.title}
-                  </span>
+                {/* Avatar + Title + Date */}
+                <div className="flex items-center gap-2.5 mb-1">
+                  {post.poster_avatar ? (
+                    <Image
+                      src={post.poster_avatar}
+                      alt="avatar"
+                      width={30}
+                      height={30}
+                      className="w-[30px] h-[30px] rounded-full object-cover shrink-0"
+                    />
+                  ) : (
+                    <div className="w-[30px] h-[30px] rounded-full bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center shrink-0">
+                      <span className="text-white text-[10px] font-bold">
+                        {(post.poster_name || "U").charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-bold text-slate-800 dark:text-white truncate">
+                      {post.title}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {post.poster_name || "Ẩn danh"} · {post.date}
+                    </span>
+                  </div>
                 </div>
 
                 {/* View comments link */}
@@ -421,11 +465,6 @@ export default function Home() {
                     )}
                   </div>
                 )}
-
-                {/* Date */}
-                <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-2">
-                  {post.date}
-                </div>
 
                 {/* Comment input */}
                 <div className="flex items-center gap-2 border-t border-slate-100 dark:border-[#1f2127] pt-2">
