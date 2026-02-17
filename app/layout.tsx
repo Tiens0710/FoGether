@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bản Tin Ăn Uống",
-  description: "Nhật ký ăn uống cùng người thương",
+  title: "Hôm nay ăn gì ta",
+  description: "Nhật ký ăn uống",
 };
 
 export default function RootLayout({

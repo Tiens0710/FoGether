@@ -9,13 +9,8 @@ import Footer from "./components/Footer";
 import CameraView from "./components/CameraView";
 import LoginPage from "./components/LoginPage";
 import { useAuth } from "./components/AuthProvider";
-
-type Comment = {
-  id: string;
-  text: string;
-  author_name: string;
-  created_at: string;
-};
+import CommentsModal from "./components/CommentsModal";
+import type { Comment } from "./components/CommentsModal";
 
 type Post = {
   id: string;
@@ -46,7 +41,12 @@ export default function Home() {
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [submittingComment, setSubmittingComment] = useState<string | null>(null);
   const [feedFilter, setFeedFilter] = useState<FeedFilter>("all");
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
+  const [editForm, setEditForm] = useState({ title: "", location: "", rating: "5.0" });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [viewingCommentsPostId, setViewingCommentsPostId] = useState<string | null>(null);
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "Ẩn danh";
+  const userAvatar = user?.user_metadata?.avatar_url || "";
 
   // Fetch posts + comments on mount
   useEffect(() => {
@@ -78,7 +78,9 @@ export default function Home() {
               id: c.id,
               text: c.text,
               author_name: c.author_name || "Ẩn danh",
+              author_avatar: c.author_avatar || undefined,
               created_at: c.created_at,
+              likes: c.likes || 0,
             });
           });
 
@@ -146,7 +148,7 @@ export default function Home() {
     try {
       const { data, error } = await supabase
         .from('comments')
-        .insert({ post_id: postId, text, author_name: userName })
+        .insert({ post_id: postId, text, author_name: userName, author_avatar: userAvatar || null })
         .select()
         .single();
 
@@ -161,7 +163,9 @@ export default function Home() {
           id: data.id,
           text: data.text,
           author_name: data.author_name || "Ẩn danh",
+          author_avatar: data.author_avatar || userAvatar,
           created_at: data.created_at,
+          likes: 0,
         };
 
         setFeedPosts(prev => prev.map(p =>
@@ -175,6 +179,79 @@ export default function Home() {
       console.error("Unexpected error:", err);
     } finally {
       setSubmittingComment(null);
+    }
+  };
+
+  // Start editing a post
+  const startEditing = (post: Post) => {
+    setEditForm({
+      title: post.title,
+      location: post.location || "",
+      rating: post.badge.label,
+    });
+    setEditingPost(post);
+  };
+
+  // Save edited post
+  const handleEditPost = async () => {
+    if (!editingPost) return;
+    setSavingEdit(true);
+
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .update({
+          title: editForm.title,
+          location: editForm.location || null,
+          rating: parseFloat(editForm.rating) || 5.0,
+        })
+        .eq('id', editingPost.id);
+
+      if (error) {
+        console.error("Error updating post:", error);
+        alert("Lỗi khi cập nhật bài viết.");
+        return;
+      }
+
+      // Update local state
+      setFeedPosts(prev => prev.map(p =>
+        p.id === editingPost.id
+          ? {
+            ...p,
+            title: editForm.title,
+            location: editForm.location || undefined,
+            badge: { ...p.badge, label: parseFloat(editForm.rating).toFixed(1) || "5.0" },
+          }
+          : p
+      ));
+      setEditingPost(null);
+    } catch (err) {
+      console.error("Unexpected error:", err);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  // Delete post
+  const handleDeletePost = async (postId: string) => {
+    if (!confirm("Bạn có chắc muốn xóa bài viết này?")) return;
+
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', postId);
+
+      if (error) {
+        console.error("Error deleting post:", error);
+        alert("Lỗi khi xóa bài viết.");
+        return;
+      }
+
+      setFeedPosts(prev => prev.filter(p => p.id !== postId));
+      setEditingPost(null);
+    } catch (err) {
+      console.error("Unexpected error:", err);
     }
   };
 
@@ -206,7 +283,9 @@ export default function Home() {
         id: `comment-temp-${Date.now()}`,
         text: data.note,
         author_name: userName,
+        author_avatar: userAvatar || undefined,
         created_at: new Date().toISOString(),
+        likes: 0,
       }] : [],
     };
 
@@ -263,7 +342,7 @@ export default function Home() {
   // Auth loading state
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-rose-50 dark:from-[#0b0b0d] dark:via-[#111317] dark:to-[#0b0b0d]">
+      <div suppressHydrationWarning className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-rose-50 dark:from-[#0b0b0d] dark:via-[#111317] dark:to-[#0b0b0d]">
         <div className="text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-400 to-rose-500 mb-4 animate-pulse">
             <span className="text-3xl">🍜</span>
@@ -372,10 +451,7 @@ export default function Home() {
                     {/* Comment + count */}
                     <button
                       type="button"
-                      onClick={() => {
-                        const input = document.getElementById(`comment-input-${post.id}`);
-                        input?.focus();
-                      }}
+                      onClick={() => setViewingCommentsPostId(post.id)}
                       className="flex items-center gap-1"
                     >
                       <span className="material-icons-round text-[26px] text-slate-800 dark:text-white hover:text-slate-500 dark:hover:text-slate-300 transition-colors">
@@ -417,54 +493,73 @@ export default function Home() {
                 </div>
 
                 {/* Avatar + Title + Date */}
-                <div className="flex items-center gap-2.5 mb-1">
+                <div className="flex items-center gap-2.5 mb-3">
                   {post.poster_avatar ? (
                     <Image
                       src={post.poster_avatar}
                       alt="avatar"
-                      width={30}
-                      height={30}
-                      className="w-[30px] h-[30px] rounded-full object-cover shrink-0"
+                      width={36}
+                      height={36}
+                      className="w-9 h-9 rounded-full object-cover shrink-0"
                     />
                   ) : (
-                    <div className="w-[30px] h-[30px] rounded-full bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center shrink-0">
-                      <span className="text-white text-[10px] font-bold">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-400 to-rose-500 flex items-center justify-center shrink-0">
+                      <span className="text-white text-xs font-bold">
                         {(post.poster_name || "U").charAt(0).toUpperCase()}
                       </span>
                     </div>
                   )}
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-bold text-slate-800 dark:text-white truncate">
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="text-base font-bold text-slate-800 dark:text-white truncate">
                       {post.title}
                     </span>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-xs text-slate-400">
                       {post.poster_name || "Ẩn danh"} · {post.date}
                     </span>
                   </div>
+                  {/* Edit button — only for own posts */}
+                  {post.user_id === user?.id && (
+                    <button
+                      type="button"
+                      onClick={() => startEditing(post)}
+                      className="shrink-0 text-slate-400 hover:text-blue-500 transition-colors"
+                      title="Sửa bài viết"
+                    >
+                      <span className="material-icons-round text-lg">more_horiz</span>
+                    </button>
+                  )}
                 </div>
 
-                {/* View comments link */}
-                {post.comments.length > 0 && (
-                  <div className="mb-1">
-                    <div className="space-y-0.5 max-h-16 overflow-y-auto no-scrollbar">
-                      {post.comments.slice(-2).map((comment) => (
-                        <div key={comment.id} className="text-sm">
-                          <span className="font-bold text-slate-800 dark:text-white mr-1">
-                            {comment.author_name}
+                {/* Top comment (most liked) */}
+                {(() => {
+                  const topComment = [...post.comments].sort((a, b) => (b.likes || 0) - (a.likes || 0))[0];
+                  return topComment ? (
+                    <div className="mb-1">
+                      <div className="text-xs">
+                        <span className="font-bold text-slate-800 dark:text-white mr-1">
+                          {topComment.author_name}
+                        </span>
+                        <span className="text-slate-600 dark:text-slate-300">
+                          {topComment.text}
+                        </span>
+                        {topComment.likes > 0 && (
+                          <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] text-red-400">
+                            <span className="material-icons-round" style={{ fontSize: '11px' }}>favorite</span>
+                            {topComment.likes}
                           </span>
-                          <span className="text-slate-600 dark:text-slate-300">
-                            {comment.text}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    {post.comments.length > 2 && (
-                      <div className="text-xs text-slate-400 mt-0.5">
-                        Xem tất cả {post.comments.length} bình luận
+                        )}
                       </div>
-                    )}
-                  </div>
-                )}
+                      {post.comments.length > 1 && (
+                        <button
+                          onClick={() => setViewingCommentsPostId(post.id)}
+                          className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 mt-0.5 transition-colors"
+                        >
+                          Xem tất cả {post.comments.length} bình luận
+                        </button>
+                      )}
+                    </div>
+                  ) : null;
+                })()}
 
                 {/* Comment input */}
                 <div className="flex items-center gap-2 border-t border-slate-100 dark:border-[#1f2127] pt-2">
@@ -497,6 +592,112 @@ export default function Home() {
           </div>
         ))}
       </main>
+
+      {/* Comments Modal */}
+      {viewingCommentsPostId && (() => {
+        const post = feedPosts.find(p => p.id === viewingCommentsPostId);
+        return post ? (
+          <CommentsModal
+            postId={post.id}
+            postTitle={post.title}
+            comments={post.comments}
+            userName={userName}
+            userAvatar={userAvatar}
+            onClose={() => setViewingCommentsPostId(null)}
+            onCommentsUpdate={(postId, updatedComments) => {
+              setFeedPosts(prev => prev.map(p =>
+                p.id === postId ? { ...p, comments: updatedComments } : p
+              ));
+            }}
+          />
+        ) : null;
+      })()}
+
+      {/* Edit Post Modal */}
+      {editingPost && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setEditingPost(null)}
+          />
+          {/* Modal */}
+          <div className="relative bg-white dark:bg-[#161820] rounded-3xl w-full max-w-sm p-6 shadow-2xl border border-white/20 dark:border-[#1f2127] z-10">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-5 text-center">
+              Chỉnh sửa bài viết
+            </h3>
+
+            {/* Title */}
+            <div className="mb-4">
+              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">
+                Tên món
+              </label>
+              <input
+                type="text"
+                value={editForm.title}
+                onChange={(e) => setEditForm(f => ({ ...f, title: e.target.value }))}
+                className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-[#1f2127] border border-slate-200 dark:border-[#2a2d35] text-sm text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400/50 transition-all"
+                placeholder="Ví dụ: Phở bò Hà Nội"
+              />
+            </div>
+
+            {/* Location */}
+            <div className="mb-4">
+              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">
+                Địa điểm
+              </label>
+              <input
+                type="text"
+                value={editForm.location}
+                onChange={(e) => setEditForm(f => ({ ...f, location: e.target.value }))}
+                className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-[#1f2127] border border-slate-200 dark:border-[#2a2d35] text-sm text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400/50 transition-all"
+                placeholder="Ví dụ: 123 Nguyễn Huệ, Q.1"
+              />
+            </div>
+
+            {/* Rating */}
+            <div className="mb-6">
+              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 block">
+                Đánh giá (1–5)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="5"
+                step="0.1"
+                value={editForm.rating}
+                onChange={(e) => setEditForm(f => ({ ...f, rating: e.target.value }))}
+                className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-[#1f2127] border border-slate-200 dark:border-[#2a2d35] text-sm text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400/50 transition-all"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setEditingPost(null)}
+                className="flex-1 py-3 rounded-xl bg-slate-100 dark:bg-[#1f2127] text-slate-600 dark:text-slate-300 font-semibold text-sm hover:bg-slate-200 dark:hover:bg-[#252830] transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleEditPost}
+                disabled={savingEdit || !editForm.title.trim()}
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-orange-400 to-rose-500 text-white font-semibold text-sm hover:opacity-90 disabled:opacity-50 transition-all"
+              >
+                {savingEdit ? "Đang lưu..." : "Lưu"}
+              </button>
+            </div>
+
+            {/* Delete button */}
+            <button
+              onClick={() => handleDeletePost(editingPost.id)}
+              className="w-full mt-3 py-2.5 text-red-500 hover:text-red-400 text-sm font-semibold transition-colors"
+            >
+              Xóa bài viết
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Floating Footer */}
       {!showCamera && (
