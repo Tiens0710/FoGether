@@ -401,7 +401,7 @@ export default function Home() {
       {/* Main Feed */}
       <main className="contents">
         {filteredPosts.map((post, index) => (
-          <div key={post.id} className="w-full h-screen snap-start shrink-0 flex items-center justify-center p-4 pt-20 pb-24">
+          <div key={post.id} className="w-full h-screen snap-start shrink-0 flex items-center justify-center p-4 pt-5 pb-24">
             <article
               className="ambient-container bg-white dark:bg-[#111317] rounded-3xl shadow-xl border border-white/20 dark:border-[#1b1b1f] overflow-hidden w-full max-w-sm h-[70vh] flex flex-col relative"
             >
@@ -424,7 +424,7 @@ export default function Home() {
                   className="object-cover transition-transform duration-700 group-hover:scale-105"
                   priority={index === 0}
                 />
-                <div className="absolute bottom-2 left-2 z-10 bg-white/95 dark:bg-[#0f1012]/90 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-1 shadow-sm border border-slate-100 dark:border-[#1b1b1f]">
+                <div className="absolute bottom-2 left-2 z-10 bg-white/45 dark:bg-[#0f1012]/40 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-1 shadow-sm border border-slate-100/30 dark:border-[#1b1b1f]/30">
                   <span className="material-icons-round text-sm text-primary dark:text-white">
                     {post.badge.icon}
                   </span>
@@ -436,7 +436,7 @@ export default function Home() {
                 {/* Location Overlay on Image */}
                 {post.location && (
                   <div className="absolute bottom-2 right-2 z-10 max-w-[60%]">
-                    <div className="bg-black/40 backdrop-blur-md text-white px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm border border-white/20">
+                    <div className="bg-black/8 backdrop-blur-md text-white px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm border border-white/8">
                       <span className="material-icons-round text-[10px]">place</span>
                       <span className="text-[10px] font-medium truncate">{post.location}</span>
                     </div>
@@ -513,8 +513,8 @@ export default function Home() {
                     >
                       <span
                         className={`material-icons-round text-[26px] transition-colors ${savedPostIds.has(post.id)
-                            ? "text-orange-400"
-                            : "text-slate-800 dark:text-white hover:text-slate-500 dark:hover:text-slate-300"
+                          ? "text-orange-400"
+                          : "text-slate-800 dark:text-white hover:text-slate-500 dark:hover:text-slate-300"
                           }`}
                       >
                         {savedPostIds.has(post.id) ? "bookmark" : "bookmark_border"}
