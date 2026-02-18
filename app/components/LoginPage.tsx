@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useAuth } from "./AuthProvider";
 
 export default function LoginPage() {
@@ -10,14 +11,21 @@ export default function LoginPage() {
             <div className="w-full max-w-sm">
                 {/* Logo & Title */}
                 <div className="text-center mb-10">
-                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-orange-400 to-rose-500 shadow-lg shadow-orange-200 dark:shadow-orange-900/30 mb-5">
-                        <span className="text-4xl">🍜</span>
+                    <div className="flex justify-center mb-5">
+                        <Image
+                            src="/logo1.png"
+                            alt="FoGether logo"
+                            width={100}
+                            height={100}
+                            className="rounded-3xl shadow-lg shadow-orange-200 dark:shadow-orange-900/30"
+                            priority
+                        />
                     </div>
                     <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-2">
                         FoGether
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm">
-                        Nhật ký ăn uống cùng người thương
+                        Hôm nay ăn gì ta...
                     </p>
                 </div>
 
