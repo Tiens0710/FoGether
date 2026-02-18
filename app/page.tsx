@@ -45,6 +45,9 @@ export default function Home() {
   const [editForm, setEditForm] = useState({ title: "", location: "", rating: "5.0" });
   const [savingEdit, setSavingEdit] = useState(false);
   const [viewingCommentsPostId, setViewingCommentsPostId] = useState<string | null>(null);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "Ẩn danh";
   const userAvatar = user?.user_metadata?.avatar_url || "";
 
@@ -330,14 +333,33 @@ export default function Home() {
   };
 
 
-  // Filter posts based on selected filter (must be before early returns)
+  // Toggle save/bookmark
+  const handleToggleSave = (postId: string) => {
+    setSavedPostIds(prev => {
+      const next = new Set(prev);
+      if (next.has(postId)) next.delete(postId);
+      else next.add(postId);
+      return next;
+    });
+  };
+
+  // Filter posts based on selected filter + search query
   const filteredPosts = useMemo(() => {
+    let posts = feedPosts;
     if (feedFilter === "mine") {
-      return feedPosts.filter(p => p.user_id === user?.id);
+      posts = posts.filter(p => p.user_id === user?.id);
+    } else if (feedFilter === "saved") {
+      posts = posts.filter(p => savedPostIds.has(p.id));
     }
-    // "friends" and "all" show everything for now
-    return feedPosts;
-  }, [feedPosts, feedFilter, user?.id]);
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      posts = posts.filter(p =>
+        p.title.toLowerCase().includes(q) ||
+        (p.location || "").toLowerCase().includes(q)
+      );
+    }
+    return posts;
+  }, [feedPosts, feedFilter, user?.id, searchQuery, savedPostIds]);
 
   // Auth loading state
   if (authLoading) {
@@ -379,7 +401,7 @@ export default function Home() {
       {/* Main Feed */}
       <main className="contents">
         {filteredPosts.map((post, index) => (
-          <div key={post.id} className="w-full h-screen snap-start shrink-0 flex items-center justify-center p-4 pb-24">
+          <div key={post.id} className="w-full h-screen snap-start shrink-0 flex items-center justify-center p-4 pt-20 pb-24">
             <article
               className="ambient-container bg-white dark:bg-[#111317] rounded-3xl shadow-xl border border-white/20 dark:border-[#1b1b1f] overflow-hidden w-full max-w-sm h-[70vh] flex flex-col relative"
             >
@@ -484,9 +506,18 @@ export default function Home() {
                   </div>
                   {/* Bookmark — pushed to right */}
                   <div className="ml-auto">
-                    <button type="button">
-                      <span className="material-icons-round text-[26px] text-slate-800 dark:text-white hover:text-slate-500 dark:hover:text-slate-300 transition-colors">
-                        bookmark_border
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSave(post.id)}
+                      style={savedPostIds.has(post.id) ? { animation: "heartBeat 0.35s ease-in-out" } : {}}
+                    >
+                      <span
+                        className={`material-icons-round text-[26px] transition-colors ${savedPostIds.has(post.id)
+                            ? "text-orange-400"
+                            : "text-slate-800 dark:text-white hover:text-slate-500 dark:hover:text-slate-300"
+                          }`}
+                      >
+                        {savedPostIds.has(post.id) ? "bookmark" : "bookmark_border"}
                       </span>
                     </button>
                   </div>
@@ -699,11 +730,82 @@ export default function Home() {
         </div>
       )}
 
+      {/* Search Overlay */}
+      {showSearch && (
+        <div className="fixed inset-0 z-[200] flex flex-col" style={{ background: "rgba(10,10,12,0.85)", backdropFilter: "blur(20px)" }}>
+          {/* Search bar */}
+          <div className="flex items-center gap-3 px-5 pt-14 pb-4">
+            <div className="flex-1 flex items-center gap-2 bg-white/10 border border-white/15 rounded-2xl px-4 py-3">
+              <span className="material-icons-round text-white/60" style={{ fontSize: 20 }}>search</span>
+              <input
+                autoFocus
+                type="text"
+                placeholder="Tìm tên món, địa điểm..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="flex-1 bg-transparent text-white placeholder:text-white/40 text-sm focus:outline-none"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")} className="text-white/50 hover:text-white transition-colors">
+                  <span className="material-icons-round" style={{ fontSize: 18 }}>close</span>
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => { setShowSearch(false); setSearchQuery(""); }}
+              className="text-white/70 hover:text-white font-semibold text-sm transition-colors"
+            >
+              Hủy
+            </button>
+          </div>
+
+          {/* Results */}
+          <div className="flex-1 overflow-y-auto px-5 pb-8">
+            {searchQuery.trim() === "" ? (
+              <p className="text-center text-white/30 text-sm mt-12">Nhập tên món để tìm kiếm</p>
+            ) : filteredPosts.length === 0 ? (
+              <p className="text-center text-white/30 text-sm mt-12">Không tìm thấy món nào 😔</p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {filteredPosts.map(post => (
+                  <button
+                    key={post.id}
+                    type="button"
+                    onClick={() => { setShowSearch(false); setSearchQuery(""); }}
+                    className="flex items-center gap-3 bg-white/8 hover:bg-white/12 border border-white/10 rounded-2xl p-3 text-left transition-colors w-full"
+                  >
+                    <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-white/10 relative">
+                      {post.image && (
+                        <Image src={post.image} alt={post.title} fill className="object-cover" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-semibold text-sm truncate">{post.title}</p>
+                      {post.location && (
+                        <p className="text-white/40 text-xs truncate mt-0.5">
+                          <span className="material-icons-round" style={{ fontSize: 11, verticalAlign: "middle" }}>place</span>
+                          {" "}{post.location}
+                        </p>
+                      )}
+                      <p className="text-white/30 text-xs mt-0.5">{post.poster_name} · {post.date}</p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className="material-icons-round text-yellow-400" style={{ fontSize: 14 }}>star</span>
+                      <span className="text-white/70 text-xs font-bold">{post.badge.label}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Floating Footer */}
       {!showCamera && (
         <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none">
           <div className="pointer-events-auto">
-            <Footer onCameraClick={() => setShowCamera(true)} />
+            <Footer onCameraClick={() => setShowCamera(true)} onSearchClick={() => setShowSearch(true)} />
           </div>
         </div>
       )}

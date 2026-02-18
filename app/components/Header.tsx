@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useAuth } from "./AuthProvider";
 import "./Header.css";
 
-export type FeedFilter = "all" | "friends" | "mine";
+export type FeedFilter = "all" | "friends" | "mine" | "saved";
 
 type HeaderProps = {
   feedFilter?: FeedFilter;
@@ -16,6 +16,7 @@ const filterOptions: { value: FeedFilter; label: string; icon: string }[] = [
   { value: "all", label: "Mọi người", icon: "public" },
   { value: "friends", label: "Bạn bè", icon: "group" },
   { value: "mine", label: "Của tôi", icon: "person" },
+  { value: "saved", label: "Đã lưu", icon: "bookmark" },
 ];
 
 export default function Header({ feedFilter = "all", onFilterChange }: HeaderProps) {
